@@ -64,7 +64,7 @@ UKF::UKF() {
 
   n_x_ = 5; // px, py, velocity, psi, psi_dot
   n_aug_ = 7; // two extra augmented: nu_a(nu_acc_longitude), nu_yawdd(nu_acc_yaw)
-  lambda_ = 3;  // Value from video. More on this, refer to
+  lambda_ = 3-n_x_;  // Value from video. More on this, refer to
                 // Slide 22 of http://ais.informatik.uni-freiburg.de/teaching/ws12/mapping/pdf/slam05-ukf.pdf
 
   // Co-variance matrix start with identity
@@ -74,16 +74,19 @@ UKF::UKF() {
           0, 0, 0, 1, 0,
           0, 0, 0, 0, 1;
 
-  // sigma points
-  Xsig_pred_ = MatrixXd(n_x_, 2*n_aug_+1);
+  // TODO: sigma points initialized in Prediction step
+  // Xsig_pred_
+  // Sigma points
+  Xsig_pred_ = MatrixXd(n_aug_, 2*n_aug_+1);
+  std::cout << "Xsig_pred_ = " << Xsig_pred_ << endl;
 
   //set weights
-  double sum_lambda_n_aug = lambda_+n_aug_;
+  sum_lambda_n_aug_ = lambda_+n_aug_;
   weights_ = VectorXd(2*n_aug_+1);
-  weights_(0) = lambda_/sum_lambda_n_aug;
+  weights_(0) = lambda_/sum_lambda_n_aug_;
   //std::cout << "weights_: " << weights_(0);
   for (int i=1; i<2*n_aug_+1; i++){
-    weights_(i) = 1/(2*sum_lambda_n_aug);
+    weights_(i) = 1/(2*sum_lambda_n_aug_);
     //std::cout << " " << weights_(i);
   }
   //std::cout << "\n";
@@ -93,12 +96,58 @@ UKF::UKF() {
 UKF::~UKF() {}
 
 /**
+ * Prediction step 1
+ */
+void UKF::GenerateSigmaPoints(VectorXd *x_aug, MatrixXd *P_aug) {
+  //create augmented mean state
+  x_aug->head(5) = x_;
+  x_aug->coeffRef(5) = 0;
+  x_aug->coeffRef(6) = 0;
+
+  //create augmented covariance matrix
+  P_aug->fill(0.0);
+  P_aug->topLeftCorner(5,5) = P_;
+  P_aug->coeffRef(5,5) = std_a_*std_a_;
+  P_aug->coeffRef(6,6) = std_yawdd_*std_yawdd_;
+
+  //calculate square root of P - Chelosky decomposition
+  MatrixXd A = P_aug->llt().matrixL();
+
+  //set first column of sigma point matrix
+  Xsig_pred_.col(0)  = *x_aug;
+
+  //set remaining sigma points
+  double sqrt_sum_lambda_n_aug = sqrt(sum_lambda_n_aug_);
+  for (int i = 0; i < n_x_; i++)
+  {
+    Xsig_pred_.col(i+1)     = *x_aug + sqrt_sum_lambda_n_aug * A.col(i);
+    Xsig_pred_.col(i+1+n_x_) = *x_aug - sqrt_sum_lambda_n_aug * A.col(i);
+  }
+  // Debug
+  std::cout << "Xsig_pred_ = " << std::endl << Xsig_pred_ << std::endl;
+}
+
+/**
+ * Prediction step 2
+ */
+void StatePrediction() {
+
+}
+
+/**
+ * Prediction step 3
+ */
+void StatePredictionMeanCovariance() {
+
+}
+
+/**
  * ProcessFirstMeasurement
  * @param meas_package The 1st measurement data of either radar or laser
  * Return true if no error occurs, otherwise false.
  */
 bool UKF::ProcessFirstMeasurement(MeasurementPackage meas_package) {
-  // Initialize x_, Xsig_pred_, P_
+  // Initialize x_
   if(meas_package.sensor_type_ == MeasurementPackage::LASER) {
     x_(0) = meas_package.raw_measurements_(0); // px
     x_(1) = meas_package.raw_measurements_(1); // py
@@ -168,9 +217,19 @@ void UKF::Prediction(double delta_t) {
   Complete this function! Estimate the object's location. Modify the state
   vector, x_. Predict sigma points, the state, and the state covariance matrix.
   */
+  // Augmented state vector
+  VectorXd *x_aug = new VectorXd(n_aug_);
+  // Augmented covariance matrix
+  MatrixXd *P_aug = new MatrixXd(n_aug_, n_aug_);
+
   // Augmented sigma points generation
+  UKF::GenerateSigmaPoints(x_aug, P_aug);
   // State prediction with sigma points
   // State prediction mean and co-variance
+
+
+  // TODO:
+  // update x_ and P_ with x_aug and P_aug
 }
 
 /**

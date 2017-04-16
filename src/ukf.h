@@ -68,6 +68,9 @@ public:
   ///* Sigma point spreading parameter
   double lambda_;
 
+  ///* sum of n_aug_ and lambda_, avoid duplciates of calculating this
+  double sum_lambda_n_aug_;
+
   ///* the current NIS for radar
   double NIS_radar_;
 
@@ -85,6 +88,13 @@ public:
   virtual ~UKF();
 
   /**
+  * Prediction steps
+  */
+  void GenerateSigmaPoints(VectorXd *x_aug, MatrixXd *P_aug);
+  void StatePrediction();
+  void StatePredictionMeanCovariance();
+
+ /**
    * ProcessFirstMeasurement
    * @param meas_package The 1st measurement data of either radar or laser
    * Return true if no error occurs, otherwise false.
