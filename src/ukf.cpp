@@ -25,11 +25,16 @@ UKF::UKF() {
   P_ = MatrixXd(5, 5);
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
+  // TODO: to fine-tune the practical value for a bicyle
   std_a_ = 30;
 
   // Process noise standard deviation yaw acceleration in rad/s^2
+  // TODO: to fine-tune the practical value for a bicyle
   std_yawdd_ = 30;
 
+  // Below deviation values should be left unchanged/untuned, as they are
+  // provided by manufacturers who had done their calibration.
+  //
   // Laser measurement noise standard deviation position1 in m
   std_laspx_ = 0.15;
 
@@ -52,6 +57,24 @@ UKF::UKF() {
 
   Hint: one or more values initialized above might be wildly off...
   */
+
+  // x_, P_, Xsig_pred_, time_us_ are left uninitialized in contructor.
+  // They'll be initialized in first measurement arrives.
+  is_initialized_ = false;
+
+  n_x_ = 5; // px, py, velocity, psi, psi_dot
+  n_aug_ = 7; // two extra augmented: nu_a(nu_acc_longitude), nu_yawdd(nu_acc_yaw)
+  lambda_ = 3;  // Value from video. More on this, refer to
+                // Slide 22 of http://ais.informatik.uni-freiburg.de/teaching/ws12/mapping/pdf/slam05-ukf.pdf
+
+  //set weights
+  double sum_lambda_n_aug = lambda_+n_aug_;
+  weights_ = VectorXd(2*n_aug_+1);
+  weights_(0) = lambda_/sum_lambda_n_aug;
+  for (int i=1; i<2*n_aug_+1; i++){
+      weights_(i) = 1/(2*sum_lambda_n_aug);
+  }
+
 }
 
 UKF::~UKF() {}
