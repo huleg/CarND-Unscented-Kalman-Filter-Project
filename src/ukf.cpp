@@ -58,7 +58,7 @@ UKF::UKF() {
   Hint: one or more values initialized above might be wildly off...
   */
 
-  // x_, P_, Xsig_pred_, time_us_ are left uninitialized in contructor.
+  // x_, time_us_ are left uninitialized in contructor.
   // They'll be initialized in first measurement arrives.
   is_initialized_ = false;
 
@@ -67,17 +67,58 @@ UKF::UKF() {
   lambda_ = 3;  // Value from video. More on this, refer to
                 // Slide 22 of http://ais.informatik.uni-freiburg.de/teaching/ws12/mapping/pdf/slam05-ukf.pdf
 
+  // Co-variance matrix start with identity
+  P_ << 1, 0, 0, 0, 0,
+          0, 1, 0, 0, 0,
+          0, 0, 1, 0, 0,
+          0, 0, 0, 1, 0,
+          0, 0, 0, 0, 1;
+
+  // sigma points
+  Xsig_pred_ = MatrixXd(n_x_, 2*n_aug_+1);
+
   //set weights
   double sum_lambda_n_aug = lambda_+n_aug_;
   weights_ = VectorXd(2*n_aug_+1);
   weights_(0) = lambda_/sum_lambda_n_aug;
+  //std::cout << "weights_: " << weights_(0);
   for (int i=1; i<2*n_aug_+1; i++){
-      weights_(i) = 1/(2*sum_lambda_n_aug);
+    weights_(i) = 1/(2*sum_lambda_n_aug);
+    //std::cout << " " << weights_(i);
   }
+  //std::cout << "\n";
 
 }
 
 UKF::~UKF() {}
+
+/**
+ * ProcessFirstMeasurement
+ * @param meas_package The 1st measurement data of either radar or laser
+ * Return true if no error occurs, otherwise false.
+ */
+bool UKF::ProcessFirstMeasurement(MeasurementPackage meas_package) {
+  // Initialize x_, Xsig_pred_, P_
+  if(meas_package.sensor_type_ == MeasurementPackage::LASER) {
+    x_(0) = meas_package.raw_measurements_(0); // px
+    x_(1) = meas_package.raw_measurements_(1); // py
+  } else if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+    x_(0) = meas_package.raw_measurements_(0)*cos(meas_package.raw_measurements_(1));
+    x_(1) = meas_package.raw_measurements_(0)*sin(meas_package.raw_measurements_(1));
+  } else {
+    std::cerr << "1st measurement: Unrecognized type of measurement data!" << endl;
+    return false;
+  }
+
+  x_(2) = 0; // longitudinal velocity
+  x_(3) = 0; // psi. Since x_(2) = 0, so as rotational speed
+  x_(4) = 0; // psi_dot.
+
+  // Init timestamp
+  time_us_ = meas_package.timestamp_;
+
+  return true;
+}
 
 /**
  * @param {MeasurementPackage} meas_package The latest measurement data of
@@ -90,6 +131,29 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   Complete this function! Make sure you switch between lidar and radar
   measurements.
   */
+
+  // 1st measurement
+  if (!is_initialized_) {
+    is_initialized_ = UKF::ProcessFirstMeasurement(meas_package);
+  } else {
+    // Timestamp and delta T
+    double delta_t = meas_package.timestamp_ - time_us_;
+    time_us_ = meas_package.timestamp_;
+    //std::cout << "delta T = " << delta_t << endl;
+
+    // Prediction
+    UKF::Prediction(delta_t);
+
+    // Update
+    if(meas_package.sensor_type_ == MeasurementPackage::LASER) {
+      UKF::UpdateLidar(meas_package);
+    } else if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+      UKF::UpdateRadar(meas_package);
+    } else {
+      std::cerr << "Unrecognized type of measurement data!" << endl;
+    }
+  }
+
 }
 
 /**
@@ -104,6 +168,9 @@ void UKF::Prediction(double delta_t) {
   Complete this function! Estimate the object's location. Modify the state
   vector, x_. Predict sigma points, the state, and the state covariance matrix.
   */
+  // Augmented sigma points generation
+  // State prediction with sigma points
+  // State prediction mean and co-variance
 }
 
 /**
@@ -119,6 +186,8 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the lidar NIS.
   */
+  // Measurements prediction
+  // Update state
 }
 
 /**
@@ -134,4 +203,6 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   You'll also need to calculate the radar NIS.
   */
+  // Measurements prediction
+  // Update state
 }

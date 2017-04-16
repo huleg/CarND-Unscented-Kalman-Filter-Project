@@ -85,6 +85,13 @@ public:
   virtual ~UKF();
 
   /**
+   * ProcessFirstMeasurement
+   * @param meas_package The 1st measurement data of either radar or laser
+   * Return true if no error occurs, otherwise false.
+   */
+  bool ProcessFirstMeasurement(MeasurementPackage meas_package);
+
+  /**
    * ProcessMeasurement
    * @param meas_package The latest measurement data of either radar or laser
    */
