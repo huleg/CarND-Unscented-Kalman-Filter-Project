@@ -239,6 +239,101 @@ bool UKF::ProcessFirstMeasurement(MeasurementPackage meas_package) {
 }
 
 /**
+ * Predicts sigma points, the state, and the state covariance matrix.
+ * @param {double} delta_t the change in time (in seconds) between the last
+ * measurement and this one.
+ */
+void UKF::Prediction(double delta_t) {
+  /**
+  TODO:
+
+  Complete this function! Estimate the object's location. Modify the state
+  vector, x_. Predict sigma points, the state, and the state covariance matrix.
+  */
+  // Augmented sigma points generation
+  UKF::GenerateSigmaPoints();
+  // State prediction with sigma points
+  UKF::StatePrediction(delta_t);
+  // State prediction mean and co-variance
+  UKF::StatePredictionMeanCovariance();
+}
+
+/**
+ * Updates the state and the state covariance matrix using a laser measurement.
+ * @param {MeasurementPackage} meas_package
+ */
+void UKF::UpdateLidar(MeasurementPackage meas_package) {
+  /**
+  TODO:
+
+  Complete this function! Use lidar data to update the belief about the object's
+  position. Modify the state vector, x_, and covariance, P_.
+
+  You'll also need to calculate the lidar NIS.
+  */
+  // Measurements prediction
+
+  // Lidar measurements are from linear model, thus simpler measurements prediction.
+  double z_pred_px = x_(0);
+  double z_pred_py = x_(1);
+  // Z pred covariance
+  MatrixXd z_pred_covar = MatrixXd(2, 2);
+  z_pred_covar = P_.topLeftCorner(2, 2);
+  // Add measurement error covariances
+  z_pred_covar(0,0) += std_laspx_ * std_laspx_;
+  z_pred_covar(1,1) += std_laspy_ * std_laspy_;
+
+
+  // Update state
+
+  // Kalman gain
+  MatrixXd T = MatrixXd(5,2);
+  T.fill(0.0);
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
+    // state difference
+    VectorXd x_diff = Xsig_pred_.col(i).segment(0,5) - x_;
+    //angle normalization
+    while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
+    while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
+
+    T += weights_(i) * x_diff * x_diff.segment(0,2).transpose() ;
+  }
+  //std::cout << "T = " << T << std::endl;
+
+  MatrixXd K = MatrixXd(5,2);
+  K = T * z_pred_covar.inverse();
+  //std::cout << "K = " << K << std::endl;
+
+  // State update with measured data
+  VectorXd z_err = VectorXd(2);
+  z_err(0) = meas_package.raw_measurements_(0) - z_pred_px;
+  z_err(1) = meas_package.raw_measurements_(1) - z_pred_py;
+  x_ += K*z_err;
+  std::cout << "x_ = " << x_ << std::endl;
+
+  // State covariance matrix update
+  P_ -= K*z_pred_covar*K.transpose();
+  std::cout << "P_ = " << P_ << std::endl;
+}
+
+/**
+ * Updates the state and the state covariance matrix using a radar measurement.
+ * @param {MeasurementPackage} meas_package
+ */
+void UKF::UpdateRadar(MeasurementPackage meas_package) {
+  /**
+  TODO:
+
+  Complete this function! Use radar data to update the belief about the object's
+  position. Modify the state vector, x_, and covariance, P_.
+
+  You'll also need to calculate the radar NIS.
+  */
+  // Measurements prediction
+  // Update state
+}
+
+/**
  * @param {MeasurementPackage} meas_package The latest measurement data of
  * either radar or laser.
  */
@@ -274,56 +369,3 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
 
 }
 
-/**
- * Predicts sigma points, the state, and the state covariance matrix.
- * @param {double} delta_t the change in time (in seconds) between the last
- * measurement and this one.
- */
-void UKF::Prediction(double delta_t) {
-  /**
-  TODO:
-
-  Complete this function! Estimate the object's location. Modify the state
-  vector, x_. Predict sigma points, the state, and the state covariance matrix.
-  */
-  // Augmented sigma points generation
-  UKF::GenerateSigmaPoints();
-  // State prediction with sigma points
-  UKF::StatePrediction(delta_t);
-  // State prediction mean and co-variance
-  UKF::StatePredictionMeanCovariance();
-}
-
-/**
- * Updates the state and the state covariance matrix using a laser measurement.
- * @param {MeasurementPackage} meas_package
- */
-void UKF::UpdateLidar(MeasurementPackage meas_package) {
-  /**
-  TODO:
-
-  Complete this function! Use lidar data to update the belief about the object's
-  position. Modify the state vector, x_, and covariance, P_.
-
-  You'll also need to calculate the lidar NIS.
-  */
-  // Measurements prediction
-  // Update state
-}
-
-/**
- * Updates the state and the state covariance matrix using a radar measurement.
- * @param {MeasurementPackage} meas_package
- */
-void UKF::UpdateRadar(MeasurementPackage meas_package) {
-  /**
-  TODO:
-
-  Complete this function! Use radar data to update the belief about the object's
-  position. Modify the state vector, x_, and covariance, P_.
-
-  You'll also need to calculate the radar NIS.
-  */
-  // Measurements prediction
-  // Update state
-}
