@@ -99,7 +99,12 @@ UKF::~UKF() {}
 /**
  * Prediction step 1
  */
-void UKF::GenerateSigmaPoints(VectorXd *x_aug, MatrixXd *P_aug) {
+void UKF::GenerateSigmaPoints() {
+  // Augmented state vector
+  VectorXd *x_aug = new VectorXd(n_aug_);
+  // Augmented covariance matrix
+  MatrixXd *P_aug = new MatrixXd(n_aug_, n_aug_);
+
   //create augmented mean state
   x_aug->head(5) = x_;
   x_aug->coeffRef(5) = 0; // nu_a
@@ -281,20 +286,12 @@ void UKF::Prediction(double delta_t) {
   Complete this function! Estimate the object's location. Modify the state
   vector, x_. Predict sigma points, the state, and the state covariance matrix.
   */
-  // Augmented state vector
-  VectorXd *x_aug = new VectorXd(n_aug_);
-  // Augmented covariance matrix
-  MatrixXd *P_aug = new MatrixXd(n_aug_, n_aug_);
-
   // Augmented sigma points generation
-  UKF::GenerateSigmaPoints(x_aug, P_aug);
+  UKF::GenerateSigmaPoints();
   // State prediction with sigma points
   UKF::StatePrediction(delta_t);
   // State prediction mean and co-variance
   UKF::StatePredictionMeanCovariance();
-
-  // TODO:
-  // update x_ and P_ with x_aug and P_aug
 }
 
 /**
