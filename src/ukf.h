@@ -91,7 +91,7 @@ public:
   * Prediction steps
   */
   void GenerateSigmaPoints(VectorXd *x_aug, MatrixXd *P_aug);
-  void StatePrediction();
+  void StatePrediction(double delta_t);
   void StatePredictionMeanCovariance();
 
  /**

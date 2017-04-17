@@ -78,6 +78,7 @@ UKF::UKF() {
   // Xsig_pred_
   // Sigma points
   Xsig_pred_ = MatrixXd(n_aug_, 2*n_aug_+1);
+  Xsig_pred_.fill(0);
   std::cout << "Xsig_pred_ = " << Xsig_pred_ << endl;
 
   //set weights
@@ -86,7 +87,7 @@ UKF::UKF() {
   weights_(0) = lambda_/sum_lambda_n_aug_;
   //std::cout << "weights_: " << weights_(0);
   for (int i=1; i<2*n_aug_+1; i++){
-    weights_(i) = 1/(2*sum_lambda_n_aug_);
+    weights_(i) = 0.5/sum_lambda_n_aug_;
     //std::cout << " " << weights_(i);
   }
   //std::cout << "\n";
@@ -101,8 +102,8 @@ UKF::~UKF() {}
 void UKF::GenerateSigmaPoints(VectorXd *x_aug, MatrixXd *P_aug) {
   //create augmented mean state
   x_aug->head(5) = x_;
-  x_aug->coeffRef(5) = 0;
-  x_aug->coeffRef(6) = 0;
+  x_aug->coeffRef(5) = 0; // nu_a
+  x_aug->coeffRef(6) = 0; // nu_yawdd
 
   //create augmented covariance matrix
   P_aug->fill(0.0);
@@ -115,8 +116,7 @@ void UKF::GenerateSigmaPoints(VectorXd *x_aug, MatrixXd *P_aug) {
 
   //set first column of sigma point matrix
   Xsig_pred_.col(0)  = *x_aug;
-
-  //set remaining sigma points
+  //set remaining sigma points - reusing X state prediction matrix
   double sqrt_sum_lambda_n_aug = sqrt(sum_lambda_n_aug_);
   for (int i = 0; i < n_x_; i++)
   {
@@ -124,21 +124,85 @@ void UKF::GenerateSigmaPoints(VectorXd *x_aug, MatrixXd *P_aug) {
     Xsig_pred_.col(i+1+n_x_) = *x_aug - sqrt_sum_lambda_n_aug * A.col(i);
   }
   // Debug
-  std::cout << "Xsig_pred_ = " << std::endl << Xsig_pred_ << std::endl;
+  //std::cout << "Xsig_pred_ = " << std::endl << Xsig_pred_ << std::endl;
 }
 
 /**
- * Prediction step 2
+ * Prediction step 2 - State Prediction
+ *   Re-using Xsig_pred_ to save predicted states. It was saving sigma points.
  */
-void StatePrediction() {
+void UKF::StatePrediction(double delta_t) {
+  //State prediction with sigma points
+  for (int i = 0; i< 2*n_aug_+1; i++)
+  {
+    //extract values for better readability
+    double p_x = Xsig_pred_(0,i);
+    double p_y = Xsig_pred_(1,i);
+    double v = Xsig_pred_(2,i);
+    double yaw = Xsig_pred_(3,i);
+    double yawd = Xsig_pred_(4,i);
+    double nu_a = Xsig_pred_(5,i);
+    double nu_yawdd = Xsig_pred_(6,i);
 
+    //predicted state values
+    double px_p, py_p;
+
+    //avoid division by zero
+    if (fabs(yawd) > 0.001) {
+        px_p = p_x + v/yawd * ( sin (yaw + yawd*delta_t) - sin(yaw));
+        py_p = p_y + v/yawd * ( cos(yaw) - cos(yaw+yawd*delta_t) );
+    }
+    else {
+        px_p = p_x + v*delta_t*cos(yaw);
+        py_p = p_y + v*delta_t*sin(yaw);
+    }
+
+    double v_p = v;
+    double yaw_p = yaw + yawd*delta_t;
+    double yawd_p = yawd;
+
+    //add noise
+    px_p = px_p + 0.5*nu_a*delta_t*delta_t * cos(yaw);
+    py_p = py_p + 0.5*nu_a*delta_t*delta_t * sin(yaw);
+    v_p = v_p + nu_a*delta_t;
+
+    yaw_p = yaw_p + 0.5*nu_yawdd*delta_t*delta_t;
+    yawd_p = yawd_p + nu_yawdd*delta_t;
+
+    //write predicted sigma point into right column
+    Xsig_pred_(0,i) = px_p;
+    Xsig_pred_(1,i) = py_p;
+    Xsig_pred_(2,i) = v_p;
+    Xsig_pred_(3,i) = yaw_p;
+    Xsig_pred_(4,i) = yawd_p;
+  }
 }
 
 /**
- * Prediction step 3
+ * Prediction step 3 - Predicated states mean and covariance
+ *   Directly update x_ and P_, both have only n_x_ elements in each col.
+ *   However, Xsig_pred_ has n_aug_ elements each col. Pay attention to
+ *   dimention change.
  */
-void StatePredictionMeanCovariance() {
+void UKF::StatePredictionMeanCovariance() {
+  //predicted state mean
+  x_.fill(0.0);
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
+    x_ += weights_(i) * Xsig_pred_.col(i).segment(0,5);
+  }
 
+  //predicted state covariance matrix
+  P_.fill(0.0);
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
+
+    // state difference
+    VectorXd x_diff = Xsig_pred_.col(i).segment(0,5) - x_;
+    //angle normalization
+    while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
+    while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
+
+    P_ += weights_(i) * x_diff * x_diff.transpose() ;
+  }
 }
 
 /**
@@ -225,8 +289,9 @@ void UKF::Prediction(double delta_t) {
   // Augmented sigma points generation
   UKF::GenerateSigmaPoints(x_aug, P_aug);
   // State prediction with sigma points
+  UKF::StatePrediction(delta_t);
   // State prediction mean and co-variance
-
+  UKF::StatePredictionMeanCovariance();
 
   // TODO:
   // update x_ and P_ with x_aug and P_aug
