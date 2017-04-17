@@ -120,6 +120,7 @@ void UKF::GenerateSigmaPoints() {
   MatrixXd A = P_aug->llt().matrixL();
 
   //set first column of sigma point matrix
+  Xsig_pred_.fill(0.0); // Clear data from previous round, esp. reusing it for predicted X.
   Xsig_pred_.col(0)  = *x_aug;
   //set remaining sigma points - reusing X state prediction matrix
   double sqrt_sum_lambda_n_aug = sqrt(sum_lambda_n_aug_);
@@ -180,6 +181,7 @@ void UKF::StatePrediction(double delta_t) {
     Xsig_pred_(2,i) = v_p;
     Xsig_pred_(3,i) = yaw_p;
     Xsig_pred_(4,i) = yawd_p;
+    // TODO: nu_a, nu_yawdd seems no need to write back to Xsig_pred_
   }
 }
 
@@ -198,6 +200,7 @@ void UKF::StatePredictionMeanCovariance() {
 
   //predicted state covariance matrix
   P_.fill(0.0);
+  std::cout << "P_ = " << P_ << std::endl;
   for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
 
     // state difference
@@ -207,6 +210,7 @@ void UKF::StatePredictionMeanCovariance() {
     while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
 
     P_ += weights_(i) * x_diff * x_diff.transpose() ;
+    std::cout << "P_ = " << P_ << std::endl;
   }
 }
 
@@ -283,7 +287,6 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   z_pred_covar(0,0) += std_laspx_ * std_laspx_;
   z_pred_covar(1,1) += std_laspy_ * std_laspy_;
 
-
   // Update state
 
   // Kalman gain
@@ -301,6 +304,7 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   //std::cout << "T = " << T << std::endl;
 
   MatrixXd K = MatrixXd(5,2);
+  std::cout << "z_pred_covar = " << z_pred_covar << std::endl;
   K = T * z_pred_covar.inverse();
   //std::cout << "K = " << K << std::endl;
 
@@ -350,7 +354,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     is_initialized_ = UKF::ProcessFirstMeasurement(meas_package);
   } else {
     // Timestamp and delta T
-    double delta_t = meas_package.timestamp_ - time_us_;
+    double delta_t = (meas_package.timestamp_ - time_us_)/1000000;
     time_us_ = meas_package.timestamp_;
     //std::cout << "delta T = " << delta_t << endl;
 
