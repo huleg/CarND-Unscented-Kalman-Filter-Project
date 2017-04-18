@@ -26,11 +26,11 @@ UKF::UKF() {
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
   // TODO: to fine-tune the practical value for a bicyle
-  std_a_ = 30;
+  std_a_ = 8; // roughly 4m/s of speed, equals 10 miles/hr
 
   // Process noise standard deviation yaw acceleration in rad/s^2
   // TODO: to fine-tune the practical value for a bicyle
-  std_yawdd_ = 30;
+  std_yawdd_ = 3; // roughly 90 degrees per second change
 
   // Below deviation values should be left unchanged/untuned, as they are
   // provided by manufacturers who had done their calibration.
@@ -118,19 +118,20 @@ void UKF::GenerateSigmaPoints() {
 
   //calculate square root of P - Chelosky decomposition
   MatrixXd A = P_aug->llt().matrixL();
+  std::cout << "GenSigmaPts: A = " << A << std::endl;
 
   //set first column of sigma point matrix
   Xsig_pred_.fill(0.0); // Clear data from previous round, esp. reusing it for predicted X.
   Xsig_pred_.col(0)  = *x_aug;
   //set remaining sigma points - reusing X state prediction matrix
   double sqrt_sum_lambda_n_aug = sqrt(sum_lambda_n_aug_);
-  for (int i = 0; i < n_x_; i++)
+  for (int i = 0; i < n_aug_; i++)
   {
     Xsig_pred_.col(i+1)     = *x_aug + sqrt_sum_lambda_n_aug * A.col(i);
-    Xsig_pred_.col(i+1+n_x_) = *x_aug - sqrt_sum_lambda_n_aug * A.col(i);
+    Xsig_pred_.col(i+1+n_aug_) = *x_aug - sqrt_sum_lambda_n_aug * A.col(i);
   }
   // Debug
-  //std::cout << "Xsig_pred_ = " << std::endl << Xsig_pred_ << std::endl;
+  //std::cout << "GenSigmaPts: Xsig_pred_ = " << std::endl << Xsig_pred_ << std::endl;
 }
 
 /**
@@ -183,6 +184,8 @@ void UKF::StatePrediction(double delta_t) {
     Xsig_pred_(4,i) = yawd_p;
     // TODO: nu_a, nu_yawdd seems no need to write back to Xsig_pred_
   }
+  // Debug
+  std::cout << "StatePred: Xsig_pred_ = " << Xsig_pred_ << std::endl;
 }
 
 /**
@@ -210,8 +213,9 @@ void UKF::StatePredictionMeanCovariance() {
     while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
 
     P_ += weights_(i) * x_diff * x_diff.transpose() ;
-    std::cout << "P_ = " << P_ << std::endl;
+    //std::cout << "P_ = " << P_ << std::endl;
   }
+  std::cout << "P_ = " << P_ << std::endl;
 }
 
 /**
@@ -344,11 +348,14 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
         sqrt_px2_n_py2 = 0.0001;
     z_pred_rho[i] = sqrt_px2_n_py2;
     z_pred_phi[i] = atan2(Xsig_pred_.col(i)[1], Xsig_pred_.col(i)[0]);
-    z_pred_rho_dot[i] = (Xsig_pred_.col(i)[0]*cos(Xsig_pred_.col(i)[3])*Xsig_pred_.col(i)[2]+Xsig_pred_.col(i)[1]*sin(Xsig_pred_.col(i)[3])*Xsig_pred_.col(i)[2])/sqrt_px2_n_py2;
+    double v1 = cos(Xsig_pred_.col(i)[3])*Xsig_pred_.col(i)[2];
+    double v2 = sin(Xsig_pred_.col(i)[3])*Xsig_pred_.col(i)[2];
+    z_pred_rho_dot[i] = (Xsig_pred_.col(i)[0]*v1 +
+            Xsig_pred_.col(i)[1]*v2)/sqrt_px2_n_py2;
   }
-  //std::cout << "Radar update: z_pred_rho = " << z_pred_rho << std::endl;
-  //std::cout << "Radar update: z_pred_phi = " << z_pred_phi << std::endl;
-  //std::cout << "Radar update: z_pred_rho_dot = " << z_pred_rho_dot << std::endl;
+  std::cout << "Radar update: z_pred_rho = " << z_pred_rho << std::endl;
+  std::cout << "Radar update: z_pred_phi = " << z_pred_phi << std::endl;
+  std::cout << "Radar update: z_pred_rho_dot = " << z_pred_rho_dot << std::endl;
 
   // z_pred mean calculation.
   double z_pred_rho_mean = 0.0;
@@ -419,7 +426,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   VectorXd z_err = VectorXd(3);
   z_err(0) = meas_package.raw_measurements_(0) - z_pred_rho_mean;
   z_err(1) = meas_package.raw_measurements_(1) - z_pred_phi_mean;
-  z_err(1) = meas_package.raw_measurements_(2) - z_pred_rho_dot_mean;
+  z_err(2) = meas_package.raw_measurements_(2) - z_pred_rho_dot_mean;
   x_ += K*z_err;
   std::cout << "Radar update: x_ = " << x_ << std::endl;
 
@@ -444,18 +451,26 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
   if (!is_initialized_) {
     is_initialized_ = UKF::ProcessFirstMeasurement(meas_package);
   } else {
-    // Timestamp and delta T
-    double delta_t = (meas_package.timestamp_ - time_us_)/1000000;
-    time_us_ = meas_package.timestamp_;
-    //std::cout << "delta T = " << delta_t << endl;
-
-    // Prediction
-    UKF::Prediction(delta_t);
-
     // Update
-    if(meas_package.sensor_type_ == MeasurementPackage::LASER) {
+    if(use_laser_ && (meas_package.sensor_type_ == MeasurementPackage::LASER)) {
+      // Timestamp and delta T
+      double delta_t = (meas_package.timestamp_ - time_us_)/1000000;
+      time_us_ = meas_package.timestamp_;
+      //std::cout << "delta T = " << delta_t << endl;
+
+      // Prediction
+      UKF::Prediction(delta_t);
+
       UKF::UpdateLidar(meas_package);
-    } else if (meas_package.sensor_type_ == MeasurementPackage::RADAR) {
+    } else if (use_radar_ && (meas_package.sensor_type_ == MeasurementPackage::RADAR)) {
+      // Timestamp and delta T
+      double delta_t = (meas_package.timestamp_ - time_us_)/1000000;
+      time_us_ = meas_package.timestamp_;
+      //std::cout << "delta T = " << delta_t << endl;
+
+      // Prediction
+      UKF::Prediction(delta_t);
+
       UKF::UpdateRadar(meas_package);
     } else {
       std::cerr << "Unrecognized type of measurement data!" << endl;
