@@ -334,7 +334,98 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   You'll also need to calculate the radar NIS.
   */
   // Measurements prediction
+  VectorXd z_pred_rho = VectorXd(15);
+  VectorXd z_pred_phi = VectorXd(15);
+  VectorXd z_pred_rho_dot = VectorXd(15);
+
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
+    double sqrt_px2_n_py2 = sqrt(Xsig_pred_.col(i)[0]*Xsig_pred_.col(i)[0] + Xsig_pred_.col(i)[1]*Xsig_pred_.col(i)[1]);
+    if (sqrt_px2_n_py2 < 0.0001) // If too small, avoid div-by-0.
+        sqrt_px2_n_py2 = 0.0001;
+    z_pred_rho[i] = sqrt_px2_n_py2;
+    z_pred_phi[i] = atan2(Xsig_pred_.col(i)[1], Xsig_pred_.col(i)[0]);
+    z_pred_rho_dot[i] = (Xsig_pred_.col(i)[0]*cos(Xsig_pred_.col(i)[3])*Xsig_pred_.col(i)[2]+Xsig_pred_.col(i)[1]*sin(Xsig_pred_.col(i)[3])*Xsig_pred_.col(i)[2])/sqrt_px2_n_py2;
+  }
+  //std::cout << "Radar update: z_pred_rho = " << z_pred_rho << std::endl;
+  //std::cout << "Radar update: z_pred_phi = " << z_pred_phi << std::endl;
+  //std::cout << "Radar update: z_pred_rho_dot = " << z_pred_rho_dot << std::endl;
+
+  // z_pred mean calculation.
+  double z_pred_rho_mean = 0.0;
+  double z_pred_phi_mean = 0.0;
+  double z_pred_rho_dot_mean = 0.0;
+
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
+    z_pred_rho_mean += weights_(i) * z_pred_rho[i];
+    z_pred_phi_mean += weights_(i) * z_pred_phi[i];
+    z_pred_rho_dot_mean += weights_(i) * z_pred_rho_dot[i];
+  }
+  std::cout << "Radar update: z_pred_rho_mean = " << z_pred_rho_mean << std::endl;
+  std::cout << "Radar update: z_pred_phi_mean = " << z_pred_phi_mean << std::endl;
+  std::cout << "Radar update: z_pred_rho_dot_mean = " << z_pred_rho_dot_mean << std::endl;
+
+  // z_pred_covar calculation.
+  MatrixXd z_pred_covar = MatrixXd(3, 3);
+  z_pred_covar.fill(0.0);
+  std::cout << "Radar update: z_pred_covar(init) = " << z_pred_covar << std::endl;
+
+  for (int i = 1; i < 2 * n_aug_ + 1; i++) {
+    // state difference
+    VectorXd z_diff = VectorXd(3);
+    z_diff(0) = z_pred_rho[i]-z_pred_rho_mean;
+    z_diff(1) = z_pred_phi[i]-z_pred_phi_mean;
+    z_diff(2) = z_pred_rho_dot[i]-z_pred_rho_dot_mean;
+    //angle normalization
+    while (z_diff(1)> M_PI) z_diff(1)-=2.*M_PI;
+    while (z_diff(1)<-M_PI) z_diff(1)+=2.*M_PI;
+
+    z_pred_covar += weights_(i) * z_diff * z_diff.transpose() ;
+    //std::cout << "Radar update: z_pred_covar = " << z_pred_covar << std::endl;
+  }
+
+  // Add measurement error covariances
+  z_pred_covar(0,0) += std_radr_ * std_radr_;
+  z_pred_covar(1,1) += std_radphi_ * std_radphi_;
+  z_pred_covar(2,2) += std_radrd_* std_radrd_;
+  std::cout << "Radar update: z_pred_covar (final) = " << z_pred_covar << std::endl;
+
+
   // Update state
+  // Kalman gain
+  MatrixXd T = MatrixXd(5,3);
+  T.fill(0.0);
+  for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
+    // measurement state difference
+    VectorXd z_diff = VectorXd(3);
+    z_diff(0) = z_pred_rho[i]-z_pred_rho_mean;
+    z_diff(1) = z_pred_phi[i]-z_pred_phi_mean;
+    z_diff(2) = z_pred_rho_dot[i]-z_pred_rho_dot_mean;
+    // state difference
+    VectorXd x_diff = Xsig_pred_.col(i).segment(0,5) - x_;
+    //angle normalization
+    while (x_diff(3)> M_PI) x_diff(3)-=2.*M_PI;
+    while (x_diff(3)<-M_PI) x_diff(3)+=2.*M_PI;
+
+    T += weights_(i) * x_diff * z_diff.transpose() ;
+  }
+  std::cout << "Radar update: T = " << T << std::endl;
+
+  MatrixXd K = MatrixXd(5,3);
+
+  K = T * z_pred_covar.inverse();
+  std::cout << "Radar update: K = " << K << std::endl;
+
+  // State update with measured data
+  VectorXd z_err = VectorXd(3);
+  z_err(0) = meas_package.raw_measurements_(0) - z_pred_rho_mean;
+  z_err(1) = meas_package.raw_measurements_(1) - z_pred_phi_mean;
+  z_err(1) = meas_package.raw_measurements_(2) - z_pred_rho_dot_mean;
+  x_ += K*z_err;
+  std::cout << "Radar update: x_ = " << x_ << std::endl;
+
+  // State covariance matrix update
+  P_ -= K*z_pred_covar*K.transpose();
+  std::cout << "Radar update: P_ = " << P_ << std::endl;
 }
 
 /**
