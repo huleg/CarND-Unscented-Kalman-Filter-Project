@@ -454,9 +454,9 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
     // Update
     if(use_laser_ && (meas_package.sensor_type_ == MeasurementPackage::LASER)) {
       // Timestamp and delta T
-      double delta_t = (meas_package.timestamp_ - time_us_)/1000000;
+      double delta_t = (meas_package.timestamp_ - time_us_)/1000000.0;
       time_us_ = meas_package.timestamp_;
-      //std::cout << "delta T = " << delta_t << endl;
+      std::cout << "delta T = " << delta_t << endl;
 
       // Prediction
       UKF::Prediction(delta_t);
@@ -466,7 +466,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       // Timestamp and delta T
       double delta_t = (meas_package.timestamp_ - time_us_)/1000000.0;
       time_us_ = meas_package.timestamp_;
-      //std::cout << "delta T = " << delta_t << endl;
+      std::cout << "delta T = " << delta_t << endl;
 
       // Prediction
       UKF::Prediction(delta_t);
