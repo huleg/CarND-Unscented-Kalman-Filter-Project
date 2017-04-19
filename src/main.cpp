@@ -142,7 +142,8 @@ int main(int argc, char* argv[]) {
   size_t number_of_measurements = measurement_pack_list.size();
 
   // column names for output file
-  out_file_ << "px" << "\t";
+  out_file_ << "dt" << "\t";
+  out_file_ << "px" << "\t\t";
   out_file_ << "py" << "\t\t";
   out_file_ << "v" << "\t\t";
   out_file_ << "yaw_angle" << "\t\t";
@@ -163,7 +164,8 @@ int main(int argc, char* argv[]) {
     //<<JC>>
     out_file_.precision(4);
     // output the estimation
-    out_file_ << ukf.x_(0) << "\t"; // pos1 - est
+    out_file_ << ukf.time_us_ << "\t"; // timestamp
+    out_file_ << ukf.x_(0) << "\t\t"; // pos1 - est
     out_file_ << ukf.x_(1) << "\t\t"; // pos2 - est
     out_file_ << ukf.x_(2) << "\t\t"; // vel_abs -est
     out_file_ << ukf.x_(3) << "\t\t"; // yaw_angle -est
