@@ -143,16 +143,16 @@ int main(int argc, char* argv[]) {
 
   // column names for output file
   out_file_ << "px" << "\t";
-  out_file_ << "py" << "\t";
-  out_file_ << "v" << "\t";
-  out_file_ << "yaw_angle" << "\t";
-  out_file_ << "yaw_rate" << "\t";
-  out_file_ << "px_measured" << "\t";
-  out_file_ << "py_measured" << "\t";
-  out_file_ << "px_true" << "\t";
-  out_file_ << "py_true" << "\t";
-  out_file_ << "vx_true" << "\t";
-  out_file_ << "vy_true" << "\t";
+  out_file_ << "py" << "\t\t";
+  out_file_ << "v" << "\t\t";
+  out_file_ << "yaw_angle" << "\t\t";
+  out_file_ << "yaw_rate" << "\t\t";
+  out_file_ << "px_measured" << "\t\t";
+  out_file_ << "py_measured" << "\t\t";
+  out_file_ << "px_true" << "\t\t";
+  out_file_ << "py_true" << "\t\t";
+  out_file_ << "vx_true" << "\t\t";
+  out_file_ << "vy_true" << "\t\t";
   out_file_ << "NIS" << "\n";
 
 
@@ -160,35 +160,37 @@ int main(int argc, char* argv[]) {
     // Call the UKF-based fusion
     ukf.ProcessMeasurement(measurement_pack_list[k]);
 
+    //<<JC>>
+    out_file_.precision(4);
     // output the estimation
     out_file_ << ukf.x_(0) << "\t"; // pos1 - est
-    out_file_ << ukf.x_(1) << "\t"; // pos2 - est
-    out_file_ << ukf.x_(2) << "\t"; // vel_abs -est
-    out_file_ << ukf.x_(3) << "\t"; // yaw_angle -est
-    out_file_ << ukf.x_(4) << "\t"; // yaw_rate -est
+    out_file_ << ukf.x_(1) << "\t\t"; // pos2 - est
+    out_file_ << ukf.x_(2) << "\t\t"; // vel_abs -est
+    out_file_ << ukf.x_(3) << "\t\t"; // yaw_angle -est
+    out_file_ << ukf.x_(4) << "\t\t"; // yaw_rate -est
 
     // output the measurements
     if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::LASER) {
       // output the estimation
 
       // p1 - meas
-      out_file_ << measurement_pack_list[k].raw_measurements_(0) << "\t";
+      out_file_ << measurement_pack_list[k].raw_measurements_(0) << "\t\t";
 
       // p2 - meas
-      out_file_ << measurement_pack_list[k].raw_measurements_(1) << "\t";
+      out_file_ << measurement_pack_list[k].raw_measurements_(1) << "\t\t";
     } else if (measurement_pack_list[k].sensor_type_ == MeasurementPackage::RADAR) {
       // output the estimation in the cartesian coordinates
       float ro = measurement_pack_list[k].raw_measurements_(0);
       float phi = measurement_pack_list[k].raw_measurements_(1);
-      out_file_ << ro * cos(phi) << "\t"; // p1_meas
-      out_file_ << ro * sin(phi) << "\t"; // p2_meas
+      out_file_ << ro * cos(phi) << "\t\t"; // p1_meas
+      out_file_ << ro * sin(phi) << "\t\t"; // p2_meas
     }
 
     // output the ground truth packages
-    out_file_ << gt_pack_list[k].gt_values_(0) << "\t";
-    out_file_ << gt_pack_list[k].gt_values_(1) << "\t";
-    out_file_ << gt_pack_list[k].gt_values_(2) << "\t";
-    out_file_ << gt_pack_list[k].gt_values_(3) << "\t";
+    out_file_ << gt_pack_list[k].gt_values_(0) << "\t\t";
+    out_file_ << gt_pack_list[k].gt_values_(1) << "\t\t";
+    out_file_ << gt_pack_list[k].gt_values_(2) << "\t\t";
+    out_file_ << gt_pack_list[k].gt_values_(3) << "\t\t";
 
     // output the NIS values
     

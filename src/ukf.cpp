@@ -64,7 +64,7 @@ UKF::UKF() {
 
   n_x_ = 5; // px, py, velocity, psi, psi_dot
   n_aug_ = 7; // two extra augmented: nu_a(nu_acc_longitude), nu_yawdd(nu_acc_yaw)
-  lambda_ = 3-n_x_;  // Value from video. More on this, refer to
+  lambda_ = 3-n_aug_;  // Value from video. More on this, refer to
                 // Slide 22 of http://ais.informatik.uni-freiburg.de/teaching/ws12/mapping/pdf/slam05-ukf.pdf
 
   // Co-variance matrix start with identity
@@ -464,7 +464,7 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       UKF::UpdateLidar(meas_package);
     } else if (use_radar_ && (meas_package.sensor_type_ == MeasurementPackage::RADAR)) {
       // Timestamp and delta T
-      double delta_t = (meas_package.timestamp_ - time_us_)/1000000;
+      double delta_t = (meas_package.timestamp_ - time_us_)/1000000.0;
       time_us_ = meas_package.timestamp_;
       //std::cout << "delta T = " << delta_t << endl;
 
