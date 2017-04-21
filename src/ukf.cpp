@@ -26,11 +26,11 @@ UKF::UKF() {
 
   // Process noise standard deviation longitudinal acceleration in m/s^2
   // TODO: to fine-tune the practical value for a bicyle
-  std_a_ = 2; // roughly 1m/s of speed, equals 2.5 miles/hr
+  std_a_ = 0.8; // roughly 0.4m/s of speed of error. In sample-1.txt, speed is roughly 1m/s
 
   // Process noise standard deviation yaw acceleration in rad/s^2
   // TODO: to fine-tune the practical value for a bicyle
-  std_yawdd_ = 0.2; // roughly 10 degrees per second change
+  std_yawdd_ = 0.5; // roughly 25 degrees per second change
 
   // Below deviation values should be left unchanged/untuned, as they are
   // provided by manufacturers who had done their calibration.
@@ -155,7 +155,7 @@ void UKF::StatePrediction(double delta_t) {
     double px_p, py_p;
 
     //avoid division by zero
-    if (fabs(yawd) > 0.0001) {
+    if (fabs(yawd) > 0.001) {
         px_p = p_x + v/yawd * ( sin (yaw + yawd*delta_t) - sin(yaw));
         py_p = p_y + v/yawd * ( cos(yaw) - cos(yaw+yawd*delta_t) );
     }
@@ -344,8 +344,8 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
     double sqrt_px2_n_py2 = sqrt(Xsig_pred_.col(i)[0]*Xsig_pred_.col(i)[0] + Xsig_pred_.col(i)[1]*Xsig_pred_.col(i)[1]);
-    if (sqrt_px2_n_py2 < 0.0001) // If too small, avoid div-by-0.
-        sqrt_px2_n_py2 = 0.0001;
+    if (sqrt_px2_n_py2 < 0.001) // If too small, avoid div-by-0.
+        sqrt_px2_n_py2 = 0.001;
     z_pred_rho[i] = sqrt_px2_n_py2;
     z_pred_phi[i] = atan2(Xsig_pred_.col(i)[1], Xsig_pred_.col(i)[0]);
     double v1 = cos(Xsig_pred_.col(i)[3])*Xsig_pred_.col(i)[2];
