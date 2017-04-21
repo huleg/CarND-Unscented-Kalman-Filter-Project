@@ -92,6 +92,9 @@ UKF::UKF() {
   }
   //std::cout << "\n";
 
+  NIS_laser_ = 0.0;
+  NIS_radar_ = 0.0;
+
 }
 
 UKF::~UKF() {}
@@ -308,8 +311,9 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   //std::cout << "T = " << T << std::endl;
 
   MatrixXd K = MatrixXd(5,2);
+  MatrixXd z_pred_covar_inv = z_pred_covar.inverse();
   std::cout << "z_pred_covar = " << z_pred_covar << std::endl;
-  K = T * z_pred_covar.inverse();
+  K = T * z_pred_covar_inv;
   //std::cout << "K = " << K << std::endl;
 
   // State update with measured data
@@ -322,6 +326,10 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
   // State covariance matrix update
   P_ -= K*z_pred_covar*K.transpose();
   std::cout << "P_ = " << P_ << std::endl;
+
+  // NIS
+  NIS_laser_ = z_err.transpose()*z_pred_covar_inv*z_err;
+  std::cout << "Radar NIS: NIS_laser_ = " << NIS_laser_ << std::endl;
 }
 
 /**
@@ -398,6 +406,7 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
 
   // Update state
+  MatrixXd z_pred_covar_inv = z_pred_covar.inverse();
   // Kalman gain
   MatrixXd T = MatrixXd(5,3);
   T.fill(0.0);
@@ -419,7 +428,8 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
   MatrixXd K = MatrixXd(5,3);
 
-  K = T * z_pred_covar.inverse();
+
+  K = T * z_pred_covar_inv;
   std::cout << "Radar update: K = " << K << std::endl;
 
   // State update with measured data
@@ -433,6 +443,11 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   // State covariance matrix update
   P_ -= K*z_pred_covar*K.transpose();
   std::cout << "Radar update: P_ = " << P_ << std::endl;
+
+  // NIS
+  NIS_radar_ = z_err.transpose()*z_pred_covar_inv*z_err;
+  std::cout << "Radar NIS: NIS_radar_ = " << NIS_radar_ << std::endl;
+
 }
 
 /**
