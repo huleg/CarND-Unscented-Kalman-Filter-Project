@@ -79,7 +79,9 @@ UKF::UKF() {
   // Sigma points
   Xsig_pred_ = MatrixXd(n_aug_, 2*n_aug_+1);
   Xsig_pred_.fill(0);
+#ifdef DEBUG
   std::cout << "Xsig_pred_ = " << Xsig_pred_ << endl;
+#endif
 
   //set weights
   sum_lambda_n_aug_ = lambda_+n_aug_;
@@ -121,7 +123,9 @@ void UKF::GenerateSigmaPoints() {
 
   //calculate square root of P - Chelosky decomposition
   MatrixXd A = P_aug->llt().matrixL();
+#ifdef DEBUG
   std::cout << "GenSigmaPts: A = " << A << std::endl;
+#endif
 
   //set first column of sigma point matrix
   Xsig_pred_.fill(0.0); // Clear data from previous round, esp. reusing it for predicted X.
@@ -133,8 +137,10 @@ void UKF::GenerateSigmaPoints() {
     Xsig_pred_.col(i+1)     = *x_aug + sqrt_sum_lambda_n_aug * A.col(i);
     Xsig_pred_.col(i+1+n_aug_) = *x_aug - sqrt_sum_lambda_n_aug * A.col(i);
   }
+#ifdef DEBUG
   // Debug
   //std::cout << "GenSigmaPts: Xsig_pred_ = " << std::endl << Xsig_pred_ << std::endl;
+#endif
 }
 
 /**
@@ -187,8 +193,10 @@ void UKF::StatePrediction(double delta_t) {
     Xsig_pred_(4,i) = yawd_p;
     // TODO: nu_a, nu_yawdd seems no need to write back to Xsig_pred_
   }
+#ifdef DEBUG
   // Debug
   //std::cout << "StatePred: Xsig_pred_ = " << Xsig_pred_ << std::endl;
+#endif
 }
 
 /**
@@ -206,7 +214,9 @@ void UKF::StatePredictionMeanCovariance() {
 
   //predicted state covariance matrix
   P_.fill(0.0);
+#ifdef DEBUG
   std::cout << "P_ = " << P_ << std::endl;
+#endif
   for (int i = 0; i < 2 * n_aug_ + 1; i++) {  //iterate over sigma points
 
     // state difference
@@ -218,7 +228,9 @@ void UKF::StatePredictionMeanCovariance() {
     P_ += weights_(i) * x_diff * x_diff.transpose() ;
     //std::cout << "P_ = " << P_ << std::endl;
   }
+#ifdef DEBUG
   std::cout << "P_ = " << P_ << std::endl;
+#endif
 }
 
 /**
@@ -312,24 +324,34 @@ void UKF::UpdateLidar(MeasurementPackage meas_package) {
 
   MatrixXd K = MatrixXd(5,2);
   MatrixXd z_pred_covar_inv = z_pred_covar.inverse();
+#ifdef DEBUG
   std::cout << "z_pred_covar = " << z_pred_covar << std::endl;
+#endif
   K = T * z_pred_covar_inv;
+#ifdef DEBUG
   //std::cout << "K = " << K << std::endl;
+#endif
 
   // State update with measured data
   VectorXd z_err = VectorXd(2);
   z_err(0) = meas_package.raw_measurements_(0) - z_pred_px;
   z_err(1) = meas_package.raw_measurements_(1) - z_pred_py;
   x_ += K*z_err;
+#ifdef DEBUG
   std::cout << "x_ = " << x_ << std::endl;
+#endif
 
   // State covariance matrix update
   P_ -= K*z_pred_covar*K.transpose();
+#ifdef DEBUG
   std::cout << "P_ = " << P_ << std::endl;
+#endif
 
   // NIS
   NIS_laser_ = z_err.transpose()*z_pred_covar_inv*z_err;
+#ifdef DEBUG
   std::cout << "Radar NIS: NIS_laser_ = " << NIS_laser_ << std::endl;
+#endif
 }
 
 /**
@@ -361,9 +383,11 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     z_pred_rho_dot[i] = (Xsig_pred_.col(i)[0]*v1 +
             Xsig_pred_.col(i)[1]*v2)/sqrt_px2_n_py2;
   }
+#ifdef DEBUG
   std::cout << "Radar update: z_pred_rho = " << z_pred_rho << std::endl;
   std::cout << "Radar update: z_pred_phi = " << z_pred_phi << std::endl;
   std::cout << "Radar update: z_pred_rho_dot = " << z_pred_rho_dot << std::endl;
+#endif
 
   // z_pred mean calculation.
   double z_pred_rho_mean = 0.0;
@@ -375,14 +399,18 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
     z_pred_phi_mean += weights_(i) * z_pred_phi[i];
     z_pred_rho_dot_mean += weights_(i) * z_pred_rho_dot[i];
   }
+#ifdef DEBUG
   std::cout << "Radar update: z_pred_rho_mean = " << z_pred_rho_mean << std::endl;
   std::cout << "Radar update: z_pred_phi_mean = " << z_pred_phi_mean << std::endl;
   std::cout << "Radar update: z_pred_rho_dot_mean = " << z_pred_rho_dot_mean << std::endl;
+#endif
 
   // z_pred_covar calculation.
   MatrixXd z_pred_covar = MatrixXd(3, 3);
   z_pred_covar.fill(0.0);
+#ifdef DEBUG
   std::cout << "Radar update: z_pred_covar(init) = " << z_pred_covar << std::endl;
+#endif
 
   for (int i = 1; i < 2 * n_aug_ + 1; i++) {
     // state difference
@@ -402,8 +430,9 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   z_pred_covar(0,0) += std_radr_ * std_radr_;
   z_pred_covar(1,1) += std_radphi_ * std_radphi_;
   z_pred_covar(2,2) += std_radrd_* std_radrd_;
+#ifdef DEBUG
   std::cout << "Radar update: z_pred_covar (final) = " << z_pred_covar << std::endl;
-
+#endif
 
   // Update state
   MatrixXd z_pred_covar_inv = z_pred_covar.inverse();
@@ -424,13 +453,17 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
 
     T += weights_(i) * x_diff * z_diff.transpose() ;
   }
+#ifdef DEBUG
   std::cout << "Radar update: T = " << T << std::endl;
+#endif
 
   MatrixXd K = MatrixXd(5,3);
 
 
   K = T * z_pred_covar_inv;
+#ifdef DEBUG
   std::cout << "Radar update: K = " << K << std::endl;
+#endif
 
   // State update with measured data
   VectorXd z_err = VectorXd(3);
@@ -438,15 +471,21 @@ void UKF::UpdateRadar(MeasurementPackage meas_package) {
   z_err(1) = meas_package.raw_measurements_(1) - z_pred_phi_mean;
   z_err(2) = meas_package.raw_measurements_(2) - z_pred_rho_dot_mean;
   x_ += K*z_err;
+#ifdef DEBUG
   std::cout << "Radar update: x_ = " << x_ << std::endl;
+#endif
 
   // State covariance matrix update
   P_ -= K*z_pred_covar*K.transpose();
+#ifdef DEBUG
   std::cout << "Radar update: P_ = " << P_ << std::endl;
+#endif
 
   // NIS
   NIS_radar_ = z_err.transpose()*z_pred_covar_inv*z_err;
+#ifdef DEBUG
   std::cout << "Radar NIS: NIS_radar_ = " << NIS_radar_ << std::endl;
+#endif
 
 }
 
@@ -471,7 +510,9 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       // Timestamp and delta T
       double delta_t = (meas_package.timestamp_ - time_us_)/1000000.0;
       time_us_ = meas_package.timestamp_;
+#ifdef DEBUG
       std::cout << "delta T = " << delta_t << endl;
+#endif
 
       // Prediction
       UKF::Prediction(delta_t);
@@ -481,7 +522,9 @@ void UKF::ProcessMeasurement(MeasurementPackage meas_package) {
       // Timestamp and delta T
       double delta_t = (meas_package.timestamp_ - time_us_)/1000000.0;
       time_us_ = meas_package.timestamp_;
+#ifdef DEBUG
       std::cout << "delta T = " << delta_t << endl;
+#endif
 
       // Prediction
       UKF::Prediction(delta_t);
